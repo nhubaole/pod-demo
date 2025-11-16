@@ -1,4 +1,4 @@
-package com.buildlab.pod_demo.ui.theme
+package com.buildlab.app.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
