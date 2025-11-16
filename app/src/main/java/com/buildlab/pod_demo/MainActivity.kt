@@ -50,6 +50,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,7 +59,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.buildlab.pod_demo.ui.theme.PoddemoTheme
 import kotlinx.coroutines.Dispatchers
@@ -115,6 +116,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun ShirtColorizerScreen(modifier: Modifier = Modifier) {
+    val podViewModel: PrintOnDemandViewModel = viewModel()
+    val previewState by podViewModel.previewState.collectAsState()
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var shirtColor by remember { mutableStateOf(Color(0xFF4CAF50)) } // Default green color
@@ -247,34 +251,11 @@ fun ShirtColorizerScreen(modifier: Modifier = Modifier) {
                         FloatingActionButton(
                             onClick = {
                                 scope.launch {
-                                    try {
-                                        val bitmap = capturePrintArea?.invoke()
-                                        if (bitmap != null) {
-                                            saveImageToGallery(context, bitmap)
-                                            withContext(Dispatchers.Main) {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Print area saved to gallery!",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        } else {
-                                            withContext(Dispatchers.Main) {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Failed to capture print area",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        }
-                                    } catch (e: Exception) {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(
-                                                context,
-                                                "Failed to save: ${e.message}",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
+                                    val bitmap = capturePrintArea?.invoke()
+                                    if (bitmap != null) {
+                                        podViewModel.generatePreview("data1", bitmap)
+                                    } else {
+                                        Toast.makeText(context, "Failed to capture print area", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -424,6 +405,8 @@ fun ShirtColorizerScreen(modifier: Modifier = Modifier) {
             }
         }
     }
+
+    PreviewContent(previewState, onReset = {podViewModel.resetPreview()})
 }
 
 @Composable
