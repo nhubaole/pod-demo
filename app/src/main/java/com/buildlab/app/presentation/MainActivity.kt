@@ -47,6 +47,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +62,7 @@ import com.buildlab.app.presentation._ui.EditableImageUiState
 import com.buildlab.app.presentation._ui.PreviewContent
 import com.buildlab.app.presentation._ui.PreviewUiState
 import com.buildlab.app.presentation._ui.PrintAreaView
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -83,9 +85,8 @@ class MainActivity : ComponentActivity() {
 
             PrintOnDemandScreen(
                 viewModel.previewState.collectAsStateWithLifecycle(),
-                onCapturePrintArea = { captureProvider ->
-
-                },
+                onGenerateImage = { bitmap -> viewModel.generatePreview("data1", bitmap) },
+                onGetBitMap = { key -> viewModel.getBitmap(key) },
                 onReset = { viewModel.resetPreview() }
             )
         }
@@ -163,7 +164,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PrintOnDemandScreen(
     statePreview: State<PreviewUiState>,
-    onCapturePrintArea: ((suspend () -> Bitmap?) -> Unit),
+    onGenerateImage: (Bitmap) -> Unit,
+    onGetBitMap: (String?) -> Bitmap?,
     onReset: () -> Unit,
 ) {
     val previewUiState by statePreview
@@ -171,6 +173,9 @@ fun PrintOnDemandScreen(
     var isFrontView by remember { mutableStateOf(true) }
     var images by remember { mutableStateOf(listOf<EditableImageUiState>()) }
     var selectedImageId by remember { mutableStateOf<String?>(null) }
+
+    val scope = rememberCoroutineScope()
+    var capturePrintArea: (suspend () -> Bitmap?) by remember { mutableStateOf({ null }) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -249,7 +254,12 @@ fun PrintOnDemandScreen(
 
                         FloatingActionButton(
                             onClick = {
-
+                                scope.launch {
+                                    val bitmap = capturePrintArea()
+                                    if (bitmap != null) {
+                                        onGenerateImage(bitmap)
+                                    }
+                                }
                             },
                             containerColor = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(40.dp)
@@ -314,7 +324,10 @@ fun PrintOnDemandScreen(
                 onSelectImage = { imageId ->
                     selectedImageId = imageId
                 },
-                onSavePrintArea = onCapturePrintArea
+                onSavePrintArea = { provider ->
+                    capturePrintArea = provider
+                }
+
             )
         }
 
@@ -334,11 +347,12 @@ fun PrintOnDemandScreen(
 
     PreviewContent(
         previewUiState,
+        onGetBitMap = onGetBitMap,
         onReset = {
             images = listOf()
             selectedImageId = null
             onReset()
-        }
+        },
     )
 }
 

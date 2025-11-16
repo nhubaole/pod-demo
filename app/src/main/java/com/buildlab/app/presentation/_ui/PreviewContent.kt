@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -34,84 +33,125 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
+
+// ----------------------- UI STATE (SAFE) -----------------------
+
 sealed class PreviewUiState {
     object Idle : PreviewUiState()
     object Loading : PreviewUiState()
     data class Success(
-        val male: Bitmap?,
-        val female: Bitmap?
+        val maleKey: String?,
+        val femaleKey: String?
     ) : PreviewUiState()
-
     data class Error(val message: String) : PreviewUiState()
 }
+
+
+// ----------------------- MAIN CONTENT --------------------------
 
 @Composable
 fun PreviewContent(
     previewState: PreviewUiState,
     onReset: () -> Unit,
+    onGetBitMap: (String?) -> Bitmap?,
 ) {
     when (previewState) {
+
         is PreviewUiState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
         }
 
         is PreviewUiState.Success -> {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .systemBarsPadding()
-                    .background(Color.White),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable { onReset() }
-                        )
+            val male = onGetBitMap(previewState.maleKey)
+            val female = onGetBitMap(previewState.femaleKey)
 
-                        Text(
-                            "Preview",
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Center,
-                            color = Color.Black
-                        )
-
-                        Box(modifier = Modifier.size(24.dp))
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    PreviewImages(
-                        previewState.male,
-                        previewState.female,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
+            PreviewScreen(
+                male = male,
+                female = female,
+                onBack = onReset
+            )
         }
 
         is PreviewUiState.Error -> {
-            val msg = previewState.message
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(msg, color = Color.Red)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    previewState.message,
+                    color = Color.Red
+                )
             }
         }
 
-        PreviewUiState.Idle -> {}
+        PreviewUiState.Idle -> Unit
     }
-
-
 }
+
+
+// ----------------------- FINAL UI SCREEN --------------------------
+
+@Composable
+private fun PreviewScreen(
+    male: Bitmap?,
+    female: Bitmap?,
+    onBack: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .background(Color.White)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Header with Back Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "Back",
+                    tint = Color.Black,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable { onBack() }
+                )
+
+                Text(
+                    "Preview",
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    color = Color.Black
+                )
+
+                Spacer(modifier = Modifier.size(28.dp))
+            }
+
+            PreviewImages(
+                male = male,
+                female = female,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+
+// ----------------------- IMAGES LIST --------------------------
 
 @Composable
 private fun PreviewImages(
@@ -125,60 +165,48 @@ private fun PreviewImages(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Row containing both previews
-        Column (
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // ---- Male Preview ----
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                if (male != null) {
-                    Image(
-                        bitmap = male.asImageBitmap(),
-                        contentDescription = "Male Preview",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                } else {
-                    Text(
-                        text = "Male\nPreview",
-                        textAlign = TextAlign.Center,
-                        color = Color.White
-                    )
-                }
-            }
 
-            // ---- Female Preview ----
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                if (female != null) {
-                    Image(
-                        bitmap = female.asImageBitmap(),
-                        contentDescription = "Female Preview",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                } else {
-                    Text(
-                        text = "Female\nPreview",
-                        textAlign = TextAlign.Center,
-                        color = Color.White
-                    )
-                }
-            }
+        PreviewCard(
+            label = "Male Preview",
+            bitmap = male
+        )
+
+        PreviewCard(
+            label = "Female Preview",
+            bitmap = female
+        )
+    }
+}
+
+
+// ----------------------- CARD COMPONENT --------------------------
+
+@Composable
+private fun PreviewCard(
+    label: String,
+    bitmap: Bitmap?
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.Black),
+        contentAlignment = Alignment.Center
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = label,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+        } else {
+            Text(
+                text = label,
+                textAlign = TextAlign.Center,
+                color = Color.White
+            )
         }
     }
 }

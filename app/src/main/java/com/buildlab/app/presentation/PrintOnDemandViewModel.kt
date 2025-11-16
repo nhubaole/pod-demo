@@ -5,25 +5,29 @@ import android.graphics.BitmapFactory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.buildlab.app.presentation._ui.PreviewUiState
-import com.buildlab.common.concurrency.AppDispatchers
 import com.buildlab.common.concurrency.launchIO
 import com.buildlab.repository.PrintOnDemandRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
 
 class PrintOnDemandViewModel(
     private val repository: PrintOnDemandRepository = PrintOnDemandRepository()
-): ViewModel() {
+) : ViewModel() {
 
     private val _previewState = MutableStateFlow<PreviewUiState>(PreviewUiState.Idle)
     val previewState: StateFlow<PreviewUiState> = _previewState.asStateFlow()
 
+    private val bitmapCache = mutableMapOf<String, Bitmap>()
+
     private var job: Job? = null
+
+    // Retrieve bitmap from cache
+    fun getBitmap(key: String?): Bitmap? = key?.let { bitmapCache[it] }
 
     fun generatePreview(datasetName: String, stickerBitmap: Bitmap) {
         job?.cancel()
@@ -31,34 +35,41 @@ class PrintOnDemandViewModel(
             try {
                 _previewState.value = PreviewUiState.Loading
 
-                // Convert Bitmap to file
-                val file = withContext(AppDispatchers.IO) {
-                    val tmp = File.createTempFile("sticker_", ".png")
-                    FileOutputStream(tmp).use {
-                        stickerBitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                // Convert Bitmap to temp file
+                val stickerFile = File.createTempFile("sticker_", ".png").apply {
+                    FileOutputStream(this).use { out ->
+                        stickerBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                     }
-                    tmp
                 }
 
                 // Call backend
                 val response = repository.printSticker(
                     datasetName = datasetName,
-                    sticker = file,
+                    sticker = stickerFile,
                     gender = "both"
                 )
 
                 // Download images
-                val maleBmp = response.maleImageUrl?.let { url ->
+                val maleKey = response.maleImageUrl?.let { url ->
                     val bytes = repository.downloadImage(url)
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    val key = UUID.randomUUID().toString()
+                    bitmapCache[key] = bmp
+                    key
                 }
 
-                val femaleBmp = response.femaleImageUrl?.let { url ->
+                val femaleKey = response.femaleImageUrl?.let { url ->
                     val bytes = repository.downloadImage(url)
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    val key = UUID.randomUUID().toString()
+                    bitmapCache[key] = bmp
+                    key
                 }
 
-                _previewState.value = PreviewUiState.Success(maleBmp, femaleBmp)
+                _previewState.value = PreviewUiState.Success(
+                    maleKey = maleKey,
+                    femaleKey = femaleKey
+                )
 
             } catch (e: Exception) {
                 _previewState.value = PreviewUiState.Error(e.message ?: "Unknown error")
@@ -69,5 +80,6 @@ class PrintOnDemandViewModel(
     fun resetPreview() {
         job?.cancel()
         _previewState.value = PreviewUiState.Idle
+        bitmapCache.clear()
     }
 }
