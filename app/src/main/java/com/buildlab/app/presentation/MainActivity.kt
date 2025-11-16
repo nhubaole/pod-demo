@@ -29,9 +29,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -41,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,9 +53,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.buildlab.app.presentation._ui.ColorSwatch
 import com.buildlab.app.presentation._ui.ColorSwatchUiState
 import com.buildlab.app.presentation._ui.EditableImageUiState
+import com.buildlab.app.presentation._ui.PreviewContent
+import com.buildlab.app.presentation._ui.PreviewUiState
 import com.buildlab.app.presentation._ui.PrintAreaView
 
 class MainActivity : ComponentActivity() {
@@ -72,10 +79,14 @@ class MainActivity : ComponentActivity() {
         forceRequirementsToUse()
 
         setContent {
-            PrintOnDemandScreen(
-                onCapturePrintArea = { capturePrintArea ->
+            val viewModel: PrintOnDemandViewModel = viewModel()
 
-                }
+            PrintOnDemandScreen(
+                viewModel.previewState.collectAsStateWithLifecycle(),
+                onCapturePrintArea = { captureProvider ->
+
+                },
+                onReset = { viewModel.resetPreview() }
             )
         }
     }
@@ -151,8 +162,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun PrintOnDemandScreen(
-    onCapturePrintArea: ((suspend () -> Bitmap?) -> Unit)
+    statePreview: State<PreviewUiState>,
+    onCapturePrintArea: ((suspend () -> Bitmap?) -> Unit),
+    onReset: () -> Unit,
 ) {
+    val previewUiState by statePreview
+
     var isFrontView by remember { mutableStateOf(true) }
     var images by remember { mutableStateOf(listOf<EditableImageUiState>()) }
     var selectedImageId by remember { mutableStateOf<String?>(null) }
@@ -193,6 +208,7 @@ fun PrintOnDemandScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .systemBarsPadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
         Surface(
@@ -226,6 +242,20 @@ fun PrintOnDemandScreen(
                         ) {
                             Icon(
                                 Icons.Default.Add,
+                                contentDescription = "Add Image",
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        FloatingActionButton(
+                            onClick = {
+
+                            },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
                                 contentDescription = "Add Image",
                                 modifier = Modifier.size(20.dp)
                             )
@@ -301,6 +331,15 @@ fun PrintOnDemandScreen(
             }
         )
     }
+
+    PreviewContent(
+        previewUiState,
+        onReset = {
+            images = listOf()
+            selectedImageId = null
+            onReset()
+        }
+    )
 }
 
 @Composable
