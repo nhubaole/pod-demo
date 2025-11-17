@@ -13,6 +13,5 @@ object ApiClient {
         .addInterceptor(logger)
         .build()
 
-    // CHANGE THIS TO YOUR MAC LAN IP
-    const val BASE_URL = "http://192.168.1.9:8000/"
+    const val BASE_URL = "http://13.250.17.198:7123/"
 }
